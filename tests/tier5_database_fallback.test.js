@@ -5,6 +5,7 @@ const os = require('node:os');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { initializeDatabase } = require('../src/db/database');
+const { createTicket } = require('../src/services/ticketService');
 
 test('Tier 5: Database Adapter & Fallback Integrity Tests', async (t) => {
   const tempDbPath = path.join(os.tmpdir(), `test-t5-${crypto.randomUUID()}.db`);
@@ -142,5 +143,60 @@ test('Tier 5: Database Adapter & Fallback Integrity Tests', async (t) => {
     const memTicket = await memDb.get('SELECT * FROM tickets WHERE id = ?', [memRes.lastInsertRowid]);
     assert.equal(memTicket.ticket_code, 'HD-MEM-0001');
     await memDb.close();
+  });
+
+  await t.test('T5.6: Concurrent write transactions and concurrent ticket creations without SQLITE_BUSY', async () => {
+    // 1. Concurrent write transactions directly on db.transaction()
+    const txCount = 10;
+    const txPromises = Array.from({ length: txCount }, (_, i) => {
+      return db.transaction(async (tx) => {
+        const now = new Date().toISOString();
+        return await tx.run(
+          `INSERT INTO tickets (ticket_code, title, description, category, priority, status, requester_name, requester_email, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'Open', ?, ?, ?, ?)`,
+          [`HD-T5-TX-${i}`, `Concurrent TX Title ${i}`, `Concurrent TX Desc ${i}`, 'Software', 'Medium', `User ${i}`, `user${i}@example.com`, now, now]
+        );
+      });
+    });
+
+    const txResults = await Promise.all(txPromises);
+    assert.equal(txResults.length, txCount, 'All concurrent transactions must resolve');
+    for (const res of txResults) {
+      assert.equal(res.changes, 1, 'Each transaction must affect 1 row');
+    }
+
+    // 2. Concurrent service invocations via ticketService.createTicket()
+    const svcCount = 5;
+    const svcPromises = Array.from({ length: svcCount }, (_, i) => {
+      return createTicket(
+        {
+          title: `Concurrent Service Ticket ${i}`,
+          description: `Testing concurrent createTicket call #${i}`,
+          category: 'Hardware',
+          priority: 'High',
+          requester_name: `Worker ${i}`,
+          requester_email: `worker${i}@example.com`
+        },
+        [],
+        db
+      );
+    });
+
+    const svcResults = await Promise.all(svcPromises);
+    assert.equal(svcResults.length, svcCount, 'All concurrent createTicket calls must resolve successfully');
+
+    // Verify each generated a valid unique ticket code
+    const codes = svcResults.map((r) => r.ticket_code);
+    const uniqueCodes = new Set(codes);
+    assert.equal(uniqueCodes.size, svcCount, 'All concurrent tickets must have unique ticket codes');
+
+    for (const ticket of svcResults) {
+      assert.ok(ticket.id, 'Ticket must have generated ID');
+      assert.ok(ticket.ticket_code.startsWith('HD-'), 'Ticket code must start with prefix HD-');
+    }
+
+    // Verify row counts in the database
+    const verifyRows = await db.query("SELECT ticket_code FROM tickets WHERE ticket_code LIKE 'HD-T5-TX-%'");
+    assert.equal(verifyRows.length, txCount, 'All 10 transaction rows must be committed in the database');
   });
 });

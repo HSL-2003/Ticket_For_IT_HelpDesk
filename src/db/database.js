@@ -49,6 +49,7 @@ function initializeDatabase(customPath) {
   });
 
   let schemaInitPromise = null;
+  let txQueue = Promise.resolve();
 
   const wrapper = {
     client,
@@ -143,50 +144,64 @@ function initializeDatabase(customPath) {
     /**
      * Executes a transaction block with atomicity
      * Passes a transaction-scoped wrapper `tx` to the callback
+     * Serializes transactions via an async Promise queue to prevent SQLITE_BUSY / TRANSACTION_ACTIVE collisions
      * @param {Function} fn async (tx) => { ... }
      */
     async transaction(fn) {
       await wrapper._ensureSchema();
-      const tx = await client.transaction('write');
 
-      const txWrapper = {
-        raw: tx,
-        async query(sql, params = []) {
-          const res = await tx.execute({ sql, args: params });
-          return Array.from(res.rows);
-        },
-        async get(sql, params = []) {
-          const res = await tx.execute({ sql, args: params });
-          return res.rows[0] || null;
-        },
-        async run(sql, params = []) {
-          const res = await tx.execute({ sql, args: params });
-          return {
-            lastInsertRowid: res.lastInsertRowid !== undefined && res.lastInsertRowid !== null
-              ? Number(res.lastInsertRowid)
-              : 0,
-            changes: Number(res.rowsAffected || 0)
-          };
-        },
-        async exec(sql) {
-          if (typeof tx.executeMultiple === 'function') {
-            return tx.executeMultiple(sql);
-          }
-          return tx.execute(sql);
-        }
-      };
+      const previousQueue = txQueue;
+      let releaseLock;
+      txQueue = new Promise((resolve) => {
+        releaseLock = resolve;
+      });
+
+      await previousQueue.catch(() => {});
 
       try {
-        const result = await fn(txWrapper);
-        await tx.commit();
-        return result;
-      } catch (err) {
+        const tx = await client.transaction('write');
+
+        const txWrapper = {
+          raw: tx,
+          async query(sql, params = []) {
+            const res = await tx.execute({ sql, args: params });
+            return Array.from(res.rows);
+          },
+          async get(sql, params = []) {
+            const res = await tx.execute({ sql, args: params });
+            return res.rows[0] || null;
+          },
+          async run(sql, params = []) {
+            const res = await tx.execute({ sql, args: params });
+            return {
+              lastInsertRowid: res.lastInsertRowid !== undefined && res.lastInsertRowid !== null
+                ? Number(res.lastInsertRowid)
+                : 0,
+              changes: Number(res.rowsAffected || 0)
+            };
+          },
+          async exec(sql) {
+            if (typeof tx.executeMultiple === 'function') {
+              return tx.executeMultiple(sql);
+            }
+            return tx.execute(sql);
+          }
+        };
+
         try {
-          await tx.rollback();
-        } catch (rbErr) {
-          // Ignore rollback errors if transaction was aborted
+          const result = await fn(txWrapper);
+          await tx.commit();
+          return result;
+        } catch (err) {
+          try {
+            await tx.rollback();
+          } catch (rbErr) {
+            // Ignore rollback errors if transaction was aborted
+          }
+          throw err;
         }
-        throw err;
+      } finally {
+        releaseLock();
       }
     },
 
