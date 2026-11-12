@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT HelpDesk Support Portal</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">IT HelpDesk</span>
+          <span class="brand-subtitle">Enterprise Support Portal</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <button id="nav-dashboard" class="nav-btn active" data-tab="dashboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="9"></rect>
+            <rect x="14" y="3" width="7" height="5"></rect>
+            <rect x="14" y="12" width="7" height="9"></rect>
+            <rect x="3" y="16" width="7" height="5"></rect>
+          </svg>
+          Dashboard
+        </button>
+        <button id="nav-tickets" class="nav-btn" data-tab="tickets">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Ticket List
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="btn-open-create-modal" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Ticket
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <!-- View 1: Analytics Dashboard -->
+    <section id="dashboard-view" class="view-panel active">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Analytics Dashboard</h1>
+          <p class="view-desc">Real-time overview of IT service tickets, resolution performance, and monthly metrics.</p>
+        </div>
+
+        <!-- Dashboard Filter Toolbar -->
+        <div class="filter-toolbar">
+          <div class="filter-group">
+            <label for="filter-year">Year:</label>
+            <select id="filter-year" class="form-select">
+              <option value="">All Years</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-month">Month:</label>
+            <select id="filter-month" class="form-select">
+              <option value="">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+
+          <button id="btn-apply-dashboard-filter" class="btn btn-secondary">Apply Filter</button>
+          <button id="btn-reset-dashboard-filter" class="btn btn-outline">Reset</button>
+        </div>
+      </div>
+
+      <!-- KPI Metric Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Total Tickets</span>
+            <div class="kpi-icon icon-total">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-total">0</div>
+          <div class="kpi-footer">Total submitted within period</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Pending / Backlog</span>
+            <div class="kpi-icon icon-pending">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-pending">0</div>
+          <div class="kpi-footer">Open & Pending tickets</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">In Progress</span>
+            <div class="kpi-icon icon-progress">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-in-progress">0</div>
+          <div class="kpi-footer">Currently being investigated</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Resolved / Closed</span>
+            <div class="kpi-icon icon-resolved">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-resolved">0</div>
+          <div class="kpi-footer">Successfully completed</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">Resolution Rate</span>
+            <div class="kpi-icon icon-rate">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-rate">0.0%</div>
+          <div class="kpi-footer">Resolved & Closed ratio</div>
+        </div>
+      </div>
+
+      <!-- Analytics Breakdown Sections -->
+      <div class="charts-grid">
+        <!-- Status Breakdown -->
+        <div class="chart-card">
+          <h2 class="chart-title">Status Breakdown</h2>
+          <div class="breakdown-list" id="status-breakdown-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Priority Breakdown -->
+        <div class="chart-card">
+          <h2 class="chart-title">Priority Breakdown</h2>
+          <div class="breakdown-list" id="priority-breakdown-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="chart-card">
+          <h2 class="chart-title">Category Breakdown</h2>
+          <div class="breakdown-list" id="category-breakdown-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 2: Ticket List -->
+    <section id="tickets-view" class="view-panel">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Support Tickets</h1>
+          <p class="view-desc">Browse, search, and manage support tickets across their lifecycle.</p>
+        </div>
+        <button id="btn-refresh-tickets" class="btn btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <!-- Ticket Filter Controls -->
+      <div class="table-filters">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="ticket-search" placeholder="Search by Code, Title, or Description..." class="form-input">
+        </div>
+
+        <div class="filter-selects">
+          <select id="ticket-filter-status" class="form-select">
+            <option value="">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="Pending">Pending</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+          </select>
+
+          <select id="ticket-filter-category" class="form-select">
+            <option value="">All Categories</option>
+            <option value="Hardware">Hardware</option>
+            <option value="Software">Software</option>
+            <option value="Network">Network</option>
+            <option value="Access">Access</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <select id="ticket-filter-priority" class="form-select">
+            <option value="">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tickets Table -->
+      <div class="table-container">
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket Code</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Requester</th>
+              <th>Attachments</th>
+              <th>Created</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+        <div id="tickets-empty-state" class="empty-state hidden">
+          <p>No tickets found matching current criteria.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal 1: Create Ticket Modal -->
+  <div id="create-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Support Ticket</h2>
+        <button class="modal-close" id="btn-close-create-modal">&times;</button>
+      </div>
+
+      <form id="create-ticket-form" class="modal-body" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="create-title">Ticket Title <span class="required">*</span></label>
+          <input type="text" id="create-title" name="title" required minlength="3" placeholder="e.g. Network connectivity drop in Building B" class="form-input">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="create-category">Category</label>
+            <select id="create-category" name="category" class="form-select">
+              <option value="Software">Software</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Network">Network</option>
+              <option value="Access">Access</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="create-priority">Priority</label>
+            <select id="create-priority" name="priority" class="form-select">
+              <option value="Low">Low</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="create-requester-name">Requester Name</label>
+            <input type="text" id="create-requester-name" name="requester_name" placeholder="John Doe" class="form-input">
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="create-requester-email">Requester Email</label>
+            <input type="email" id="create-requester-email" name="requester_email" placeholder="john.doe@company.internal" class="form-input">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="create-description">Description <span class="required">*</span></label>
+          <textarea id="create-description" name="description" required minlength="5" rows="4" placeholder="Describe the issue, error messages, and reproduction steps..." class="form-textarea"></textarea>
+        </div>
+
+        <!-- Image Upload Drag & Drop Area -->
+        <div class="form-group">
+          <label>Attachments (Images only: PNG, JPEG, GIF, WEBP - Max 5MB each, up to 5 files)</label>
+          <div id="drop-zone" class="drop-zone">
+            <div class="drop-zone-content">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <p>Drag and drop image files here, or <span class="browse-link">browse</span></p>
+              <span class="file-hint">PNG, JPEG, GIF, WEBP up to 5MB</span>
+            </div>
+            <input type="file" id="file-input" name="attachments" multiple accept="image/png,image/jpeg,image/gif,image/webp" class="file-input-hidden">
+          </div>
+
+          <!-- Selected files preview list -->
+          <div id="file-preview-list" class="file-preview-list"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-create">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-ticket">Submit Ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Ticket Detail Modal -->
+  <div id="detail-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div class="detail-header-info">
+          <span id="detail-ticket-code" class="detail-code">HD-000000-0000</span>
+          <span id="detail-status-badge" class="badge">Open</span>
+        </div>
+        <button class="modal-close" id="btn-close-detail-modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <h2 id="detail-title" class="detail-title">Ticket Title</h2>
+
+        <div class="detail-meta-grid">
+          <div><strong>Category:</strong> <span id="detail-category">Software</span></div>
+          <div><strong>Priority:</strong> <span id="detail-priority" class="badge">Medium</span></div>
+          <div><strong>Requester:</strong> <span id="detail-requester">User</span></div>
+          <div><strong>Created At:</strong> <span id="detail-created">Date</span></div>
+          <div><strong>Updated At:</strong> <span id="detail-updated">Date</span></div>
+        </div>
+
+        <div class="detail-section">
+          <h3 class="section-title">Description</h3>
+          <div id="detail-description" class="detail-text-box"></div>
+        </div>
+
+        <!-- Resolution Notes (if any) -->
+        <div id="detail-resolution-section" class="detail-section hidden">
+          <h3 class="section-title">Resolution Notes</h3>
+          <div id="detail-resolution-notes" class="detail-text-box resolution-box"></div>
+        </div>
+
+        <!-- Attachments Gallery -->
+        <div class="detail-section">
+          <h3 class="section-title">Attachments (<span id="detail-attachment-count">0</span>)</h3>
+          <div id="detail-attachments-gallery" class="gallery-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Lifecycle State Actions -->
+        <div class="detail-section">
+          <h3 class="section-title">Lifecycle Management</h3>
+          <p class="section-desc">Change the status of this ticket according to HelpDesk workflow rules.</p>
+          <div id="detail-action-buttons" class="action-buttons-group">
+            <!-- Dynamically populated based on current status -->
+          </div>
+        </div>
+
+        <!-- History Timeline -->
+        <div class="detail-section">
+          <h3 class="section-title">Audit History</h3>
+          <div id="detail-history-timeline" class="timeline">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resolution Notes Input Prompt Modal -->
+  <div id="prompt-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-small">
+      <div class="modal-header">
+        <h3 class="modal-title">Resolve Ticket</h3>
+        <button class="modal-close" id="btn-close-prompt-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="prompt-text">Please enter the resolution notes describing how this issue was resolved:</p>
+        <textarea id="prompt-resolution-notes" class="form-textarea" rows="4" placeholder="Root cause and actions taken to resolve the ticket..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-prompt" class="btn btn-outline">Cancel</button>
+        <button id="btn-confirm-prompt" class="btn btn-success">Confirm & Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Lightbox Modal -->
+  <div id="lightbox-modal" class="modal-overlay lightbox-overlay hidden">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="btn-close-lightbox">&times;</button>
+      <img id="lightbox-img" src="" alt="Enlarged Ticket Attachment">
+      <div class="lightbox-caption">
+        <span id="lightbox-filename">filename.png</span>
+        <a id="lightbox-download-link" href="#" download class="btn btn-sm btn-outline">Download Original</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- JavaScript Application Modules -->
+  <script src="/js/app.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/tickets.js"></script>
+  <script src="/js/modal.js"></script>
+</body>
+</html>
+
