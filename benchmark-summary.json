@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-11-12T08:19:39.281Z",
+  "config": {
+    "iterations": 2,
+    "tursoUrl": "libsql://helpdesk-db-hsl-2003.aws-eu-central-1.turso.io",
+    "nodeVersion": "v24.19.0",
+    "platform": "win32"
+  },
+  "scenarios": {
+    "raw_network_rtt": {
+      "count": 2,
+      "min": 220.16,
+      "max": 675.45,
+      "avg": 447.8,
+      "p50": 447.8,
+      "p90": 629.92,
+      "p95": 652.68,
+      "p99": 670.9
+    },
+    "detail_sequential_3_rtts": {
+      "count": 2,
+      "min": 668.69,
+      "max": 677.79,
+      "avg": 673.24,
+      "p50": 673.24,
+      "p90": 676.88,
+      "p95": 677.33,
+      "p99": 677.7
+    },
+    "detail_batched_1_rtt": {
+      "count": 2,
+      "min": 215.11,
+      "max": 240.18,
+      "avg": 227.65,
+      "p50": 227.65,
+      "p90": 237.67,
+      "p95": 238.93,
+      "p99": 239.93
+    },
+    "status_update_legacy_10_rtts": {
+      "count": 2,
+      "min": 2200.87,
+      "max": 2272.57,
+      "avg": 2236.72,
+      "p50": 2236.72,
+      "p90": 2265.4,
+      "p95": 2268.99,
+      "p99": 2271.86
+    },
+    "status_update_batched_1_rtt": {
+      "count": 2,
+      "min": 221.74,
+      "max": 226.46,
+      "avg": 224.1,
+      "p50": 224.1,
+      "p90": 225.98,
+      "p95": 226.22,
+      "p99": 226.41
+    },
+    "cache_miss": {
+      "count": 2,
+      "min": 220.17,
+      "max": 225.18,
+      "avg": 222.67,
+      "p50": 222.67,
+      "p90": 224.68,
+      "p95": 224.93,
+      "p99": 225.13
+    },
+    "cache_hit": {
+      "count": 2,
+      "min": 0,
+      "max": 0.02,
+      "avg": 0.01,
+      "p50": 0.01,
+      "p90": 0.02,
+      "p95": 0.02,
+      "p99": 0.02
+    },
+    "local_embedded_replica": {
+      "count": 10,
+      "min": 0.14,
+      "max": 0.53,
+      "avg": 0.3,
+      "p50": 0.26,
+      "p90": 0.51,
+      "p95": 0.52,
+      "p99": 0.52
+    }
+  },
+  "summary": {
+    "detailQueryReductionPercent": "66.2%",
+    "statusUpdateReductionPercent": "90.0%",
+    "cacheSpeedupReductionPercent": "100.0%",
+    "embeddedReplicaReadLatencyMs": 0.3
+  }
+}
