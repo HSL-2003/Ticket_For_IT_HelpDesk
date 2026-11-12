@@ -14,19 +14,19 @@ test('Tier 3: Cross-Feature Combinations & Strict Parity Tests', async (t) => {
   await t.test('T3.1: Multi-month / multi-year cohort isolation without crosstalk', async () => {
     // Populate tickets across multiple cohorts
     // Cohort 2025-11: 3 tickets
-    ticketService.createTicket({ title: '2025 Nov Ticket 1', description: 'Cohort A1', created_at: '2025-11-05T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2025 Nov Ticket 2', description: 'Cohort A2', created_at: '2025-11-15T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2025 Nov Ticket 3', description: 'Cohort A3', created_at: '2025-11-25T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2025 Nov Ticket 1', description: 'Cohort A1', created_at: '2025-11-05T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2025 Nov Ticket 2', description: 'Cohort A2', created_at: '2025-11-15T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2025 Nov Ticket 3', description: 'Cohort A3', created_at: '2025-11-25T10:00:00Z' }, [], db);
 
     // Cohort 2025-12: 2 tickets
-    ticketService.createTicket({ title: '2025 Dec Ticket 1', description: 'Cohort B1', created_at: '2025-12-10T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2025 Dec Ticket 2', description: 'Cohort B2', created_at: '2025-12-20T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2025 Dec Ticket 1', description: 'Cohort B1', created_at: '2025-12-10T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2025 Dec Ticket 2', description: 'Cohort B2', created_at: '2025-12-20T10:00:00Z' }, [], db);
 
     // Cohort 2026-01: 4 tickets
-    ticketService.createTicket({ title: '2026 Jan Ticket 1', description: 'Cohort C1', created_at: '2026-01-02T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2026 Jan Ticket 2', description: 'Cohort C2', created_at: '2026-01-14T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2026 Jan Ticket 3', description: 'Cohort C3', created_at: '2026-01-20T10:00:00Z' }, [], db);
-    ticketService.createTicket({ title: '2026 Jan Ticket 4', description: 'Cohort C4', created_at: '2026-01-28T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2026 Jan Ticket 1', description: 'Cohort C1', created_at: '2026-01-02T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2026 Jan Ticket 2', description: 'Cohort C2', created_at: '2026-01-14T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2026 Jan Ticket 3', description: 'Cohort C3', created_at: '2026-01-20T10:00:00Z' }, [], db);
+    await ticketService.createTicket({ title: '2026 Jan Ticket 4', description: 'Cohort C4', created_at: '2026-01-28T10:00:00Z' }, [], db);
 
     // 1. Check 2025 total (3 + 2 = 5)
     const res2025 = await fetch(`${baseUrl}/api/dashboard/metrics?year=2025`);
@@ -51,20 +51,20 @@ test('Tier 3: Cross-Feature Combinations & Strict Parity Tests', async (t) => {
 
   await t.test('T3.2: Strict 100% count and status parity between Dashboard and Ticket List', async () => {
     // Modify statuses of tickets in 2026-01
-    const janTickets = db.query("SELECT id FROM tickets WHERE created_at LIKE '2026-01%' ORDER BY id ASC");
+    const janTickets = await db.query("SELECT id FROM tickets WHERE created_at LIKE '2026-01%' ORDER BY id ASC");
     assert.equal(janTickets.length, 4);
 
     // Set statuses: 1 Open, 1 In Progress, 1 Resolved, 1 Closed
     // Ticket 1: Open
     // Ticket 2: In Progress
-    ticketService.updateTicketStatus(janTickets[1].id, { status: 'In Progress' }, db);
+    await ticketService.updateTicketStatus(janTickets[1].id, { status: 'In Progress' }, db);
     // Ticket 3: In Progress -> Resolved
-    ticketService.updateTicketStatus(janTickets[2].id, { status: 'In Progress' }, db);
-    ticketService.updateTicketStatus(janTickets[2].id, { status: 'Resolved', notes: 'Fixed Jan issue' }, db);
+    await ticketService.updateTicketStatus(janTickets[2].id, { status: 'In Progress' }, db);
+    await ticketService.updateTicketStatus(janTickets[2].id, { status: 'Resolved', notes: 'Fixed Jan issue' }, db);
     // Ticket 4: In Progress -> Resolved -> Closed
-    ticketService.updateTicketStatus(janTickets[3].id, { status: 'In Progress' }, db);
-    ticketService.updateTicketStatus(janTickets[3].id, { status: 'Resolved', notes: 'Resolved before close' }, db);
-    ticketService.updateTicketStatus(janTickets[3].id, { status: 'Closed' }, db);
+    await ticketService.updateTicketStatus(janTickets[3].id, { status: 'In Progress' }, db);
+    await ticketService.updateTicketStatus(janTickets[3].id, { status: 'Resolved', notes: 'Resolved before close' }, db);
+    await ticketService.updateTicketStatus(janTickets[3].id, { status: 'Closed' }, db);
 
     // Fetch dashboard metrics for 2026-01
     const resDash = await fetch(`${baseUrl}/api/dashboard/metrics?year=2026&month=1`);
@@ -109,7 +109,7 @@ test('Tier 3: Cross-Feature Combinations & Strict Parity Tests', async (t) => {
 
   await t.test('T3.3: Lifecycle status changes dynamically reflect in Dashboard metrics', async () => {
     // Create new ticket in current month
-    const ticket = ticketService.createTicket({
+    const ticket = await ticketService.createTicket({
       title: 'Dynamic Lifecycle Reflection Ticket',
       description: 'Testing metric shift across state changes',
       category: 'Software',

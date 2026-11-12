@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     original_filename TEXT NOT NULL,
     mime_type TEXT NOT NULL,
     file_size INTEGER NOT NULL,
+    file_data BLOB,
     created_at TEXT NOT NULL
 );
 

@@ -16,12 +16,12 @@ const ALLOWED_TRANSITIONS = {
 /**
  * Generate sequential ticket code: HD-YYYYMM-XXXX
  */
-function generateTicketCode(db, date = new Date()) {
+async function generateTicketCode(db, date = new Date()) {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const prefix = `HD-${year}${month}-`;
 
-  const lastTicket = db.get(
+  const lastTicket = await db.get(
     'SELECT ticket_code FROM tickets WHERE ticket_code LIKE ? ORDER BY id DESC LIMIT 1',
     [`${prefix}%`]
   );
@@ -78,7 +78,7 @@ function validateTicketInput({ title, description, category, priority }) {
 }
 
 /**
- * Format attachment URLs for client
+ * Format attachment URLs for client (omitting binary file_data)
  */
 function formatAttachments(attachments, ticketId) {
   if (!attachments) return [];
@@ -98,7 +98,7 @@ function formatAttachments(attachments, ticketId) {
 /**
  * Create a new ticket
  */
-function createTicket(ticketData, uploadedFiles = [], customDb = null) {
+async function createTicket(ticketData, uploadedFiles = [], customDb = null) {
   const db = customDb || getDatabase();
   validateTicketInput(ticketData);
 
@@ -112,10 +112,10 @@ function createTicket(ticketData, uploadedFiles = [], customDb = null) {
   const now = (ticketData.created_at && new Date(ticketData.created_at).toISOString()) || new Date().toISOString();
   const dateObj = new Date(now);
 
-  return db.transaction(() => {
-    const ticketCode = generateTicketCode(db, dateObj);
+  return await db.transaction(async (tx) => {
+    const ticketCode = await generateTicketCode(tx, dateObj);
 
-    const insertResult = db.run(
+    const insertResult = await tx.run(
       `INSERT INTO tickets (
         ticket_code, title, description, category, priority, status,
         requester_name, requester_email, created_at, updated_at
@@ -125,7 +125,7 @@ function createTicket(ticketData, uploadedFiles = [], customDb = null) {
 
     const ticketId = insertResult.lastInsertRowid;
 
-    // Insert attachments
+    // Insert attachments into DB including file_data BLOB
     const savedAttachments = [];
     if (uploadedFiles && uploadedFiles.length > 0) {
       for (const file of uploadedFiles) {
@@ -133,11 +133,12 @@ function createTicket(ticketData, uploadedFiles = [], customDb = null) {
         const originalName = file.originalname;
         const mimeType = file.detectedMime || file.mimetype || 'image/png';
         const fileSize = file.size;
+        const fileData = file.buffer || null;
 
-        const attResult = db.run(
-          `INSERT INTO attachments (ticket_id, stored_filename, original_filename, mime_type, file_size, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [ticketId, storedName, originalName, mimeType, fileSize, now]
+        const attResult = await tx.run(
+          `INSERT INTO attachments (ticket_id, stored_filename, original_filename, mime_type, file_size, file_data, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [ticketId, storedName, originalName, mimeType, fileSize, fileData, now]
         );
 
         savedAttachments.push({
@@ -153,15 +154,15 @@ function createTicket(ticketData, uploadedFiles = [], customDb = null) {
     }
 
     // Insert initial history
-    db.run(
+    await tx.run(
       `INSERT INTO ticket_history (ticket_id, from_status, to_status, notes, changed_by, created_at)
        VALUES (?, NULL, 'Open', 'Ticket created', ?, ?)`,
       [ticketId, requester_name, now]
     );
 
-    const ticket = db.get('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+    const ticket = await tx.get('SELECT * FROM tickets WHERE id = ?', [ticketId]);
     ticket.attachments = formatAttachments(savedAttachments, ticketId);
-    ticket.history = db.query(
+    ticket.history = await tx.query(
       'SELECT * FROM ticket_history WHERE ticket_id = ? ORDER BY created_at ASC',
       [ticketId]
     );
@@ -171,16 +172,16 @@ function createTicket(ticketData, uploadedFiles = [], customDb = null) {
 }
 
 /**
- * Retrieve ticket by ID or ticket_code
+ * Retrieve ticket by ID or ticket_code (excluding file_data BLOB from attachments)
  */
-function getTicketById(idOrCode, customDb = null) {
+async function getTicketById(idOrCode, customDb = null) {
   const db = customDb || getDatabase();
   let ticket = null;
 
   if (typeof idOrCode === 'number' || /^\d+$/.test(String(idOrCode))) {
-    ticket = db.get('SELECT * FROM tickets WHERE id = ?', [Number(idOrCode)]);
+    ticket = await db.get('SELECT * FROM tickets WHERE id = ?', [Number(idOrCode)]);
   } else {
-    ticket = db.get('SELECT * FROM tickets WHERE ticket_code = ?', [String(idOrCode)]);
+    ticket = await db.get('SELECT * FROM tickets WHERE ticket_code = ?', [String(idOrCode)]);
   }
 
   if (!ticket) {
@@ -189,13 +190,13 @@ function getTicketById(idOrCode, customDb = null) {
     throw err;
   }
 
-  const rawAttachments = db.query(
-    'SELECT * FROM attachments WHERE ticket_id = ? ORDER BY id ASC',
+  const rawAttachments = await db.query(
+    'SELECT id, ticket_id, stored_filename, original_filename, mime_type, file_size, created_at FROM attachments WHERE ticket_id = ? ORDER BY id ASC',
     [ticket.id]
   );
   ticket.attachments = formatAttachments(rawAttachments, ticket.id);
 
-  ticket.history = db.query(
+  ticket.history = await db.query(
     'SELECT * FROM ticket_history WHERE ticket_id = ? ORDER BY created_at ASC',
     [ticket.id]
   );
@@ -204,9 +205,9 @@ function getTicketById(idOrCode, customDb = null) {
 }
 
 /**
- * List tickets with flexible filtering
+ * List tickets with flexible filtering, batch-fetching attachments without N+1 overhead
  */
-function listTickets(filters = {}, customDb = null) {
+async function listTickets(filters = {}, customDb = null) {
   const db = customDb || getDatabase();
   const conditions = [];
   const params = [];
@@ -255,7 +256,7 @@ function listTickets(filters = {}, customDb = null) {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const totalCountRow = db.get(
+  const totalCountRow = await db.get(
     `SELECT COUNT(*) as total FROM tickets ${whereClause}`,
     params
   );
@@ -276,15 +277,31 @@ function listTickets(filters = {}, customDb = null) {
     }
   }
 
-  const tickets = db.query(query, queryParams);
+  const tickets = await db.query(query, queryParams);
 
-  // Attach attachment previews
-  for (const t of tickets) {
-    const atts = db.query(
-      'SELECT id, ticket_id, stored_filename, original_filename, mime_type, file_size, created_at FROM attachments WHERE ticket_id = ? ORDER BY id ASC',
-      [t.id]
+  // Eliminate N+1: batch-fetch attachments for all retrieved tickets
+  if (tickets.length > 0) {
+    const ticketIds = tickets.map((t) => t.id);
+    const placeholders = ticketIds.map(() => '?').join(',');
+    const allAttachments = await db.query(
+      `SELECT id, ticket_id, stored_filename, original_filename, mime_type, file_size, created_at
+       FROM attachments
+       WHERE ticket_id IN (${placeholders})
+       ORDER BY id ASC`,
+      ticketIds
     );
-    t.attachments = formatAttachments(atts, t.id);
+
+    const attachmentsByTicket = new Map();
+    for (const att of allAttachments) {
+      if (!attachmentsByTicket.has(att.ticket_id)) {
+        attachmentsByTicket.set(att.ticket_id, []);
+      }
+      attachmentsByTicket.get(att.ticket_id).push(att);
+    }
+
+    for (const t of tickets) {
+      t.attachments = formatAttachments(attachmentsByTicket.get(t.id) || [], t.id);
+    }
   }
 
   return {
@@ -296,7 +313,7 @@ function listTickets(filters = {}, customDb = null) {
 /**
  * Update ticket status according to lifecycle state machine
  */
-function updateTicketStatus(ticketId, { status: newStatus, notes, changed_by }, customDb = null) {
+async function updateTicketStatus(ticketId, { status: newStatus, notes, changed_by }, customDb = null) {
   const db = customDb || getDatabase();
 
   if (!newStatus || !VALID_STATUSES.includes(newStatus)) {
@@ -305,11 +322,10 @@ function updateTicketStatus(ticketId, { status: newStatus, notes, changed_by }, 
     throw err;
   }
 
-  const ticket = getTicketById(ticketId, db);
+  const ticket = await getTicketById(ticketId, db);
   const currentStatus = ticket.status;
 
   if (currentStatus === newStatus) {
-    // If same status, no state machine transition needed, return ticket
     return ticket;
   }
 
@@ -335,7 +351,7 @@ function updateTicketStatus(ticketId, { status: newStatus, notes, changed_by }, 
   const now = new Date().toISOString();
   const operator = (changed_by && changed_by.trim()) || 'IT Support';
 
-  return db.transaction(() => {
+  return await db.transaction(async (tx) => {
     let resolvedAt = ticket.resolved_at;
     let closedAt = ticket.closed_at;
     let resolutionNotes = ticket.resolution_notes;
@@ -346,36 +362,35 @@ function updateTicketStatus(ticketId, { status: newStatus, notes, changed_by }, 
     } else if (newStatus === 'Closed') {
       closedAt = now;
     } else if (newStatus === 'Open' || newStatus === 'In Progress') {
-      // Reopening or moving back
       if (currentStatus === 'Closed') {
         closedAt = null;
       }
     }
 
-    db.run(
+    await tx.run(
       `UPDATE tickets
        SET status = ?, resolution_notes = ?, resolved_at = ?, closed_at = ?, updated_at = ?
        WHERE id = ?`,
       [newStatus, resolutionNotes, resolvedAt, closedAt, now, ticket.id]
     );
 
-    db.run(
+    await tx.run(
       `INSERT INTO ticket_history (ticket_id, from_status, to_status, notes, changed_by, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [ticket.id, currentStatus, newStatus, notes ? notes.trim() : null, operator, now]
     );
 
-    return getTicketById(ticket.id, db);
+    return await getTicketById(ticket.id, tx);
   });
 }
 
 /**
- * Get attachment by ID
+ * Get attachment by ID (including file_data BLOB for streaming)
  */
-function getAttachment(ticketId, attachmentId, customDb = null) {
+async function getAttachment(ticketId, attachmentId, customDb = null) {
   const db = customDb || getDatabase();
-  const att = db.get(
-    'SELECT * FROM attachments WHERE id = ? AND ticket_id = ?',
+  const att = await db.get(
+    'SELECT id, ticket_id, stored_filename, original_filename, mime_type, file_size, file_data, created_at FROM attachments WHERE id = ? AND ticket_id = ?',
     [Number(attachmentId), Number(ticketId)]
   );
 
@@ -399,4 +414,3 @@ module.exports = {
   VALID_PRIORITIES,
   ALLOWED_TRANSITIONS
 };
-

@@ -4,22 +4,17 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const config = require('../../config');
 
-// Ensure upload directory exists
-if (!fs.existsSync(config.UPLOADS_DIR)) {
-  fs.mkdirSync(config.UPLOADS_DIR, { recursive: true });
+// Safe upload directory check (guarded against read-only serverless filesystems)
+try {
+  if (!fs.existsSync(config.UPLOADS_DIR)) {
+    fs.mkdirSync(config.UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  // Read-only filesystem in serverless environments (e.g. Vercel)
 }
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, config.UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${crypto.randomUUID()}${ext}`;
-    cb(null, uniqueName);
-  }
-});
+// In-memory storage for serverless persistence
+const storage = multer.memoryStorage();
 
 // Extension filter
 const fileFilter = (req, file, cb) => {
@@ -35,7 +30,7 @@ const fileFilter = (req, file, cb) => {
 const multerUpload = multer({
   storage,
   limits: {
-    fileSize: config.MAX_FILE_SIZE, // 5MB
+    fileSize: config.MAX_FILE_SIZE, // 4MB (Vercel compliant)
     files: config.MAX_FILES
   },
   fileFilter
@@ -97,7 +92,7 @@ function validateMagicBytes(buffer) {
 }
 
 /**
- * Clean up uploaded files in case of validation failure
+ * Clean up files (retained for backward compatibility, memoryStorage does not create disk files)
  */
 function cleanupFiles(files) {
   if (!files) return;
@@ -114,7 +109,7 @@ function cleanupFiles(files) {
 
 /**
  * Middleware wrapper supporting attachments, attachment, and image fields
- * with magic-byte verification and zero-byte protection.
+ * with in-memory magic-byte verification and zero-byte protection.
  */
 function handleUpload(req, res, next) {
   multerUpload(req, res, (err) => {
@@ -122,7 +117,7 @@ function handleUpload(req, res, next) {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({
-            error: 'File size limit exceeded. Maximum file size is 5MB.'
+            error: 'File size limit exceeded. Maximum file size is 4MB.'
           });
         }
         if (err.code === 'LIMIT_FILE_COUNT') {
@@ -149,46 +144,35 @@ function handleUpload(req, res, next) {
       }
     }
 
-    // Validate each file
+    // Validate each in-memory file buffer
     for (const file of files) {
+      const fileSize = (file.buffer && file.buffer.length) || file.size || 0;
       // Check zero-byte file
-      if (!file.size || file.size === 0) {
-        cleanupFiles(files);
+      if (fileSize === 0) {
         return res.status(400).json({
           error: `File "${file.originalname}" is empty (0 bytes).`
         });
       }
 
-      // Check magic bytes
-      try {
-        const fd = fs.openSync(file.path, 'r');
-        const headerBuffer = Buffer.alloc(16);
-        const bytesRead = fs.readSync(fd, headerBuffer, 0, 16, 0);
-        fs.closeSync(fd);
-
-        if (bytesRead < 4) {
-          cleanupFiles(files);
-          return res.status(400).json({
-            error: `File "${file.originalname}" is invalid or corrupted.`
-          });
-        }
-
-        const detectedMime = validateMagicBytes(headerBuffer);
-        if (!detectedMime) {
-          cleanupFiles(files);
-          return res.status(400).json({
-            error: `File "${file.originalname}" content does not match allowed image formats (PNG, JPEG, GIF, WEBP).`
-          });
-        }
-
-        // Store detected MIME type
-        file.detectedMime = detectedMime;
-      } catch (readErr) {
-        cleanupFiles(files);
-        return res.status(500).json({
-          error: `Failed to inspect uploaded file: ${readErr.message}`
+      // Check minimum bytes
+      if (!file.buffer || file.buffer.length < 4) {
+        return res.status(400).json({
+          error: `File "${file.originalname}" is invalid or corrupted.`
         });
       }
+
+      const detectedMime = validateMagicBytes(file.buffer.subarray(0, 16));
+      if (!detectedMime) {
+        return res.status(400).json({
+          error: `File "${file.originalname}" content does not match allowed image formats (PNG, JPEG, GIF, WEBP).`
+        });
+      }
+
+      // Store detected MIME type, byte length, and generated unique filename
+      file.detectedMime = detectedMime;
+      file.size = file.buffer.length;
+      const ext = path.extname(file.originalname).toLowerCase();
+      file.filename = `${crypto.randomUUID()}${ext}`;
     }
 
     req.uploadedFiles = files;
@@ -201,4 +185,3 @@ module.exports = {
   validateMagicBytes,
   cleanupFiles
 };
-

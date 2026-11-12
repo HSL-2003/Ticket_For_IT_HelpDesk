@@ -11,13 +11,17 @@ const errorHandler = require('./src/middleware/errorHandler');
 
 const app = express();
 
-// Ensure storage directories exist
-if (!fs.existsSync(config.UPLOADS_DIR)) {
-  fs.mkdirSync(config.UPLOADS_DIR, { recursive: true });
-}
-const dbDir = path.dirname(config.DB_PATH);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+// Ensure storage directories exist safely (no throw on read-only serverless filesystems)
+try {
+  if (!fs.existsSync(config.UPLOADS_DIR)) {
+    fs.mkdirSync(config.UPLOADS_DIR, { recursive: true });
+  }
+  const dbDir = path.dirname(config.DB_PATH);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+} catch (err) {
+  // Read-only filesystem in serverless environments (e.g. Vercel)
 }
 
 // Global middleware
@@ -52,28 +56,36 @@ app.use(errorHandler);
 
 // If run directly via node server.js
 if (require.main === module) {
-  // Initialize database
-  getDatabase();
+  (async () => {
+    // Initialize database and schema
+    const db = getDatabase();
+    if (db.initSchema) {
+      await db.initSchema();
+    }
 
-  const server = app.listen(config.PORT, () => {
-    console.log(`[IT HelpDesk System] Server running on port ${config.PORT}`);
-    console.log(`[IT HelpDesk System] Web UI: http://localhost:${config.PORT}`);
-  });
-
-  const shutdown = () => {
-    console.log('\n[IT HelpDesk System] Gracefully shutting down...');
-    server.close(() => {
-      try {
-        const db = getDatabase();
-        db.close();
-      } catch (e) {}
-      console.log('[IT HelpDesk System] Shutdown complete.');
-      process.exit(0);
+    const server = app.listen(config.PORT, () => {
+      console.log(`[IT HelpDesk System] Server running on port ${config.PORT}`);
+      console.log(`[IT HelpDesk System] Web UI: http://localhost:${config.PORT}`);
     });
-  };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+    const shutdown = () => {
+      console.log('\n[IT HelpDesk System] Gracefully shutting down...');
+      server.close(async () => {
+        try {
+          const activeDb = getDatabase();
+          await activeDb.close();
+        } catch (e) {}
+        console.log('[IT HelpDesk System] Shutdown complete.');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+  })().catch((err) => {
+    console.error('[IT HelpDesk System] Failed to start server:', err);
+    process.exit(1);
+  });
 }
 
 module.exports = app;

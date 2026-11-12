@@ -47,6 +47,7 @@ async function createTestServer() {
   config.DB_PATH = testDbPath;
 
   const db = initializeDatabase(testDbPath);
+  await db.initSchema();
   setDatabaseInstance(db);
 
   const app = express();
@@ -79,7 +80,7 @@ async function createTestServer() {
     await new Promise((resolve) => {
       server.close(() => resolve());
     });
-    db.close();
+    await db.close();
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
     } catch (e) {

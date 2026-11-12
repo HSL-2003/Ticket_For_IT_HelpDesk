@@ -119,7 +119,7 @@ test('Tier 2: Boundary & Corner Cases Tests', async (t) => {
 
   await t.test('T2.3: Invalid lifecycle status transitions & missing resolution notes', async () => {
     // Create an initial open ticket
-    const ticket = ticketService.createTicket({
+    const ticket = await ticketService.createTicket({
       title: 'Lifecycle Boundary Ticket',
       description: 'Testing illegal status transitions',
       category: 'Software',
@@ -166,33 +166,33 @@ test('Tier 2: Boundary & Corner Cases Tests', async (t) => {
   await t.test('T2.4: Temporal boundary tests (Leap day Feb 29, month boundaries, year boundaries)', async () => {
     // Insert tickets on exact edge boundaries
     // 1. Leap day: 2024-02-29T23:59:59.000Z
-    ticketService.createTicket({
+    await ticketService.createTicket({
       title: 'Leap Year Ticket',
       description: 'Submitted on Feb 29 2024 leap day',
       created_at: '2024-02-29T23:59:59.000Z'
     }, [], db);
 
     // 2. Month boundary: April 30 2026 vs May 1 2026
-    ticketService.createTicket({
+    await ticketService.createTicket({
       title: 'End of April Ticket',
       description: 'Submitted on 2026-04-30T23:59:59.000Z',
       created_at: '2026-04-30T23:59:59.000Z'
     }, [], db);
 
-    ticketService.createTicket({
+    await ticketService.createTicket({
       title: 'Start of May Ticket',
       description: 'Submitted on 2026-05-01T00:00:00.000Z',
       created_at: '2026-05-01T00:00:00.000Z'
     }, [], db);
 
     // 3. Year boundary: Dec 31 2026 vs Jan 1 2027
-    ticketService.createTicket({
+    await ticketService.createTicket({
       title: 'End of Year Ticket',
       description: 'Submitted on 2026-12-31T23:59:59.000Z',
       created_at: '2026-12-31T23:59:59.000Z'
     }, [], db);
 
-    ticketService.createTicket({
+    await ticketService.createTicket({
       title: 'New Year Ticket',
       description: 'Submitted on 2027-01-01T00:00:00.000Z',
       created_at: '2027-01-01T00:00:00.000Z'

@@ -2,10 +2,12 @@ const { getDatabase } = require('../db/database');
 
 /**
  * Compute dashboard metrics with strict half-open UTC interval filtering
+ * Executes the 4 aggregation queries concurrently via Promise.all for cloud efficiency.
+ *
  * @param {object} options { year, month }
  * @param {object|null} customDb
  */
-function getDashboardMetrics({ year, month } = {}, customDb = null) {
+async function getDashboardMetrics({ year, month } = {}, customDb = null) {
   const db = customDb || getDatabase();
   const conditions = [];
   const params = [];
@@ -37,15 +39,17 @@ function getDashboardMetrics({ year, month } = {}, customDb = null) {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // 1. Total count
-  const totalRow = db.get(`SELECT COUNT(*) as cnt FROM tickets ${whereClause}`, params);
+  // Execute independent aggregation queries concurrently
+  const [totalRow, statusRows, priorityRows, categoryRows] = await Promise.all([
+    db.get(`SELECT COUNT(*) as cnt FROM tickets ${whereClause}`, params),
+    db.query(`SELECT status, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY status`, params),
+    db.query(`SELECT priority, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY priority`, params),
+    db.query(`SELECT category, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY category`, params)
+  ]);
+
   const total = totalRow ? totalRow.cnt : 0;
 
-  // 2. Status counts
-  const statusRows = db.query(
-    `SELECT status, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY status`,
-    params
-  );
+  // Status counts
   const by_status = {
     'Open': 0,
     'Pending': 0,
@@ -59,16 +63,12 @@ function getDashboardMetrics({ year, month } = {}, customDb = null) {
     }
   }
 
-  // 3. High-level KPI aggregations
+  // High-level KPI aggregations
   const pending_backlog = by_status['Open'] + by_status['Pending'];
   const in_progress = by_status['In Progress'];
   const resolved_closed = by_status['Resolved'] + by_status['Closed'];
 
-  // 4. Priority counts
-  const priorityRows = db.query(
-    `SELECT priority, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY priority`,
-    params
-  );
+  // Priority counts
   const by_priority = {
     'Low': 0,
     'Medium': 0,
@@ -81,11 +81,7 @@ function getDashboardMetrics({ year, month } = {}, customDb = null) {
     }
   }
 
-  // 5. Category counts
-  const categoryRows = db.query(
-    `SELECT category, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY category`,
-    params
-  );
+  // Category counts
   const by_category = {
     'Hardware': 0,
     'Software': 0,
@@ -99,7 +95,7 @@ function getDashboardMetrics({ year, month } = {}, customDb = null) {
     }
   }
 
-  // 6. Resolution rate guarded against division by zero
+  // Resolution rate guarded against division by zero
   const resolution_rate = total > 0 ? Number(((resolved_closed / total) * 100).toFixed(1)) : 0.0;
 
   return {
@@ -123,4 +119,3 @@ function getDashboardMetrics({ year, month } = {}, customDb = null) {
 module.exports = {
   getDashboardMetrics
 };
-
