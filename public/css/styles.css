@@ -911,6 +911,34 @@ body {
 .toast-success { border-left-color: var(--success); }
 .toast-error { border-left-color: var(--danger); }
 .toast-warning { border-left-color: var(--warning); }
+.toast-info { border-left-color: var(--primary); }
+
+/* Optimistic UI Indicators & Sync Animations */
+.ticket-row-pending {
+  background-color: #f0fdf4 !important;
+  transition: background-color 0.4s ease;
+}
+
+.sync-pulse {
+  animation: syncPulse 1.5s infinite;
+}
+
+@keyframes syncPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.badge-syncing {
+  background-color: #fef3c7;
+  color: #92400e;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 9999px;
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(10px); }

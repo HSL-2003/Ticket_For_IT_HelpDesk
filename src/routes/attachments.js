@@ -5,7 +5,30 @@ const fs = require('node:fs');
 const ticketService = require('../services/ticketService');
 const config = require('../../config');
 
-function serveAttachmentFile(res, attachment, isDownload = false) {
+function serveAttachmentFile(reqOrRes, resOrAttachment, attachmentOrIsDownload, maybeIsDownload) {
+  let req, res, attachment, isDownload;
+  if (reqOrRes && reqOrRes.headers) {
+    req = reqOrRes;
+    res = resOrAttachment;
+    attachment = attachmentOrIsDownload;
+    isDownload = !!maybeIsDownload;
+  } else {
+    res = reqOrRes;
+    attachment = resOrAttachment;
+    isDownload = !!attachmentOrIsDownload;
+    req = null;
+  }
+
+  const createdAtTime = attachment.created_at ? new Date(attachment.created_at).getTime() : 0;
+  const etag = `"${attachment.id}-${attachment.file_size}-${createdAtTime}"`;
+
+  // HTTP 304 Conditional Caching check
+  if (req && req.headers && req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.setHeader('Content-Type', attachment.mime_type || 'application/octet-stream');
   const disposition = isDownload ? 'attachment' : 'inline';
   res.setHeader(
@@ -40,7 +63,7 @@ function serveAttachmentFile(res, attachment, isDownload = false) {
 router.get('/tickets/:ticketId/attachments/:id/view', async (req, res, next) => {
   try {
     const attachment = await ticketService.getAttachment(req.params.ticketId, req.params.id);
-    serveAttachmentFile(res, attachment, false);
+    serveAttachmentFile(req, res, attachment, false);
   } catch (err) {
     next(err);
   }
@@ -50,10 +73,11 @@ router.get('/tickets/:ticketId/attachments/:id/view', async (req, res, next) => 
 router.get('/tickets/:ticketId/attachments/:id/download', async (req, res, next) => {
   try {
     const attachment = await ticketService.getAttachment(req.params.ticketId, req.params.id);
-    serveAttachmentFile(res, attachment, true);
+    serveAttachmentFile(req, res, attachment, true);
   } catch (err) {
     next(err);
   }
 });
 
+router.serveAttachmentFile = serveAttachmentFile;
 module.exports = router;

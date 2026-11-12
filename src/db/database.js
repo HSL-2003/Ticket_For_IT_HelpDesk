@@ -90,6 +90,17 @@ function initializeDatabase(customPath) {
     },
 
     /**
+     * Executes a batch of statements in a single round-trip pipeline
+     * @param {Array<{sql: string, args?: Array|Object}>} statements
+     * @param {'read'|'write'|'deferred'} [mode='deferred']
+     * @returns {Promise<Array<object>>}
+     */
+    async batch(statements, mode = 'deferred') {
+      await wrapper._ensureSchema();
+      return client.batch(statements, mode);
+    },
+
+    /**
      * Executes arbitrary DDL or multi-statement SQL
      * @param {string} sql
      */
@@ -238,10 +249,17 @@ function getDatabase(customPath) {
 
 /**
  * Overrides the active singleton database instance (used for test isolation)
+ * Clears in-memory cache to prevent cross-test pollution.
  * @param {object} instance
  */
 function setDatabaseInstance(instance) {
   defaultDbInstance = instance;
+  try {
+    const cache = require('../cache/memoryCache');
+    cache.clear();
+  } catch (e) {
+    // Safe fallback if cache module is unavailable
+  }
 }
 
 module.exports = {

@@ -7,7 +7,7 @@ function renderBreakdown(containerId, items, total, colorMap) {
   if (!container) return;
   container.innerHTML = '';
 
-  const entries = Object.entries(items);
+  const entries = Object.entries(items || {});
   if (entries.length === 0) {
     container.innerHTML = '<p class="empty-state">No data available.</p>';
     return;
@@ -32,6 +32,8 @@ function renderBreakdown(containerId, items, total, colorMap) {
   }
 }
 
+window.renderBreakdown = renderBreakdown;
+
 window.loadDashboardMetrics = async function() {
   const yearSelect = document.getElementById('filter-year');
   const monthSelect = document.getElementById('filter-month');
@@ -50,38 +52,49 @@ window.loadDashboardMetrics = async function() {
     }
     const data = await res.json();
 
-    // Update KPI cards
-    document.getElementById('kpi-total').textContent = data.total;
-    document.getElementById('kpi-pending').textContent = data.pending_backlog;
-    document.getElementById('kpi-in-progress').textContent = data.in_progress;
-    document.getElementById('kpi-resolved').textContent = data.resolved_closed;
-    document.getElementById('kpi-rate').textContent = `${data.resolution_rate}%`;
+    if (window.AppStore) {
+      window.AppStore.metrics = data;
+      window.AppStore.renderDashboard();
+    } else {
+      // Null-safe update KPI cards
+      const totalEl = document.getElementById('kpi-total');
+      const pendingEl = document.getElementById('kpi-pending');
+      const inProgressEl = document.getElementById('kpi-in-progress');
+      const resolvedEl = document.getElementById('kpi-resolved');
+      const rateEl = document.getElementById('kpi-rate');
 
-    // Render Status Breakdown
-    renderBreakdown('status-breakdown-container', data.by_status, data.total, {
-      'Open': '#2563eb',
-      'Pending': '#d97706',
-      'In Progress': '#7c3aed',
-      'Resolved': '#16a34a',
-      'Closed': '#475569'
-    });
+      if (totalEl) totalEl.textContent = data.total;
+      if (pendingEl) pendingEl.textContent = data.pending_backlog;
+      if (inProgressEl) inProgressEl.textContent = data.in_progress;
+      if (resolvedEl) resolvedEl.textContent = data.resolved_closed;
+      if (rateEl) rateEl.textContent = `${data.resolution_rate}%`;
 
-    // Render Priority Breakdown
-    renderBreakdown('priority-breakdown-container', data.by_priority, data.total, {
-      'Low': '#64748b',
-      'Medium': '#0284c7',
-      'High': '#ea580c',
-      'Critical': '#dc2626'
-    });
+      // Render Status Breakdown
+      renderBreakdown('status-breakdown-container', data.by_status || {}, data.total || 0, {
+        'Open': '#2563eb',
+        'Pending': '#d97706',
+        'In Progress': '#7c3aed',
+        'Resolved': '#16a34a',
+        'Closed': '#475569'
+      });
 
-    // Render Category Breakdown
-    renderBreakdown('category-breakdown-container', data.by_category, data.total, {
-      'Hardware': '#0d9488',
-      'Software': '#4f46e5',
-      'Network': '#0891b2',
-      'Access': '#c026d3',
-      'Other': '#64748b'
-    });
+      // Render Priority Breakdown
+      renderBreakdown('priority-breakdown-container', data.by_priority || {}, data.total || 0, {
+        'Low': '#64748b',
+        'Medium': '#0284c7',
+        'High': '#ea580c',
+        'Critical': '#dc2626'
+      });
+
+      // Render Category Breakdown
+      renderBreakdown('category-breakdown-container', data.by_category || {}, data.total || 0, {
+        'Hardware': '#0d9488',
+        'Software': '#4f46e5',
+        'Network': '#0891b2',
+        'Access': '#c026d3',
+        'Other': '#64748b'
+      });
+    }
   } catch (err) {
     console.error('Error fetching dashboard metrics:', err);
     window.showToast(err.message, 'error');

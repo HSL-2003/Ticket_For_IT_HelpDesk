@@ -1,13 +1,24 @@
 const { getDatabase } = require('../db/database');
+const cache = require('../cache/memoryCache');
 
 /**
  * Compute dashboard metrics with strict half-open UTC interval filtering
- * Executes the 4 aggregation queries concurrently via Promise.all for cloud efficiency.
+ * Executes the 4 aggregation queries in a single batched pipeline request and caches result.
  *
  * @param {object} options { year, month }
  * @param {object|null} customDb
  */
 async function getDashboardMetrics({ year, month } = {}, customDb = null) {
+  const cacheKey = `dashboard:metrics:${year || ''}:${month || ''}`;
+
+  if (!customDb) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const fetchStartTime = Date.now();
   const db = customDb || getDatabase();
   const conditions = [];
   const params = [];
@@ -39,13 +50,32 @@ async function getDashboardMetrics({ year, month } = {}, customDb = null) {
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  // Execute independent aggregation queries concurrently
-  const [totalRow, statusRows, priorityRows, categoryRows] = await Promise.all([
-    db.get(`SELECT COUNT(*) as cnt FROM tickets ${whereClause}`, params),
-    db.query(`SELECT status, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY status`, params),
-    db.query(`SELECT priority, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY priority`, params),
-    db.query(`SELECT category, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY category`, params)
-  ]);
+  let totalRow;
+  let statusRows;
+  let priorityRows;
+  let categoryRows;
+
+  // Single batched pipeline request combining all 4 aggregation queries
+  if (typeof db.batch === 'function') {
+    const results = await db.batch([
+      { sql: `SELECT COUNT(*) as cnt FROM tickets ${whereClause}`, args: params },
+      { sql: `SELECT status, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY status`, args: params },
+      { sql: `SELECT priority, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY priority`, args: params },
+      { sql: `SELECT category, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY category`, args: params }
+    ], 'read');
+
+    totalRow = results[0].rows[0] || null;
+    statusRows = Array.from(results[1].rows);
+    priorityRows = Array.from(results[2].rows);
+    categoryRows = Array.from(results[3].rows);
+  } else {
+    [totalRow, statusRows, priorityRows, categoryRows] = await Promise.all([
+      db.get(`SELECT COUNT(*) as cnt FROM tickets ${whereClause}`, params),
+      db.query(`SELECT status, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY status`, params),
+      db.query(`SELECT priority, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY priority`, params),
+      db.query(`SELECT category, COUNT(*) as cnt FROM tickets ${whereClause} GROUP BY category`, params)
+    ]);
+  }
 
   const total = totalRow ? totalRow.cnt : 0;
 
@@ -98,7 +128,7 @@ async function getDashboardMetrics({ year, month } = {}, customDb = null) {
   // Resolution rate guarded against division by zero
   const resolution_rate = total > 0 ? Number(((resolved_closed / total) * 100).toFixed(1)) : 0.0;
 
-  return {
+  const result = {
     filter: {
       year: parsedYear,
       month: parsedMonth,
@@ -114,6 +144,12 @@ async function getDashboardMetrics({ year, month } = {}, customDb = null) {
     by_category,
     resolution_rate
   };
+
+  if (!customDb) {
+    cache.set(cacheKey, result, 30, fetchStartTime);
+  }
+
+  return result;
 }
 
 module.exports = {
